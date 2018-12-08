@@ -11,21 +11,27 @@ class Event extends MyBaseModel
 {
     use SoftDeletes;
 
+    protected $dates = ['start_date', 'end_date', 'on_sale_date'];
+
     /**
      * The validation rules.
      *
-     * @var array $rules
+     * @return array $rules
      */
-    protected $rules = [
-        'title'               => ['required'],
-        'description'         => ['required'],
-        'location_venue_name' => ['required_without:venue_name_full'],
-        'venue_name_full'     => ['required_without:location_venue_name'],
-        'start_date'          => ['required'],
-        'end_date'            => ['required'],
-        'organiser_name'      => ['required_without:organiser_id'],
-        'event_image'         => ['mimes:jpeg,jpg,png', 'max:3000'],
-    ];
+    public function rules()
+    {
+        $format = config('attendize.default_datetime_format');
+        return [
+                'title'               => 'required',
+                'description'         => 'required',
+                'location_venue_name' => 'required_without:venue_name_full',
+                'venue_name_full'     => 'required_without:location_venue_name',
+                'start_date'          => 'required|date_format:"'.$format.'"',
+                'end_date'            => 'required|date_format:"'.$format.'"',
+                'organiser_name'      => 'required_without:organiser_id',
+                'event_image'         => 'mimes:jpeg,jpg,png|max:3000',
+            ];
+    }
 
     /**
      * The validation error messages.
@@ -36,7 +42,7 @@ class Event extends MyBaseModel
         'title.required'                       => 'You must at least give a title for your event.',
         'organiser_name.required_without'      => 'Please create an organiser or select an existing organiser.',
         'event_image.mimes'                    => 'Please ensure you are uploading an image (JPG, PNG, JPEG)',
-        'event_image.max'                      => 'Pleae ensure the image is not larger then 3MB',
+        'event_image.max'                      => 'Please ensure the image is not larger then 3MB',
         'location_venue_name.required_without' => 'Please enter a venue for your event',
         'venue_name_full.required_without'     => 'Please enter a venue for your event',
     ];
@@ -48,7 +54,7 @@ class Event extends MyBaseModel
      */
     public function questions()
     {
-        return $this->belongsToMany('\App\Models\Question', 'event_question');
+        return $this->belongsToMany(\App\Models\Question::class, 'event_question');
     }
 
     /**
@@ -56,9 +62,9 @@ class Event extends MyBaseModel
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
-    public function questions_with_tashed()
+    public function questions_with_trashed()
     {
-        return $this->belongsToMany('\App\Models\Question', 'event_question')->withTrashed();
+        return $this->belongsToMany(\App\Models\Question::class, 'event_question')->withTrashed();
     }
 
     /**
@@ -68,7 +74,7 @@ class Event extends MyBaseModel
      */
     public function attendees()
     {
-        return $this->hasMany('\App\Models\Attendee');
+        return $this->hasMany(\App\Models\Attendee::class);
     }
 
     /**
@@ -78,7 +84,7 @@ class Event extends MyBaseModel
      */
     public function images()
     {
-        return $this->hasMany('\App\Models\EventImage');
+        return $this->hasMany(\App\Models\EventImage::class);
     }
 
     /**
@@ -88,7 +94,7 @@ class Event extends MyBaseModel
      */
     public function messages()
     {
-        return $this->hasMany('\App\Models\Message')->orderBy('created_at', 'DESC');
+        return $this->hasMany(\App\Models\Message::class)->orderBy('created_at', 'DESC');
     }
 
     /**
@@ -98,7 +104,7 @@ class Event extends MyBaseModel
      */
     public function tickets()
     {
-        return $this->hasMany('\App\Models\Ticket');
+        return $this->hasMany(\App\Models\Ticket::class);
     }
 
     /**
@@ -108,7 +114,7 @@ class Event extends MyBaseModel
      */
     public function stats()
     {
-        return $this->hasMany('\App\Models\EventStats');
+        return $this->hasMany(\App\Models\EventStats::class);
     }
 
     /**
@@ -118,7 +124,7 @@ class Event extends MyBaseModel
      */
     public function affiliates()
     {
-        return $this->hasMany('\App\Models\Affiliate');
+        return $this->hasMany(\App\Models\Affiliate::class);
     }
 
     /**
@@ -128,7 +134,7 @@ class Event extends MyBaseModel
      */
     public function orders()
     {
-        return $this->hasMany('\App\Models\Order');
+        return $this->hasMany(\App\Models\Order::class);
     }
 
     /**
@@ -138,7 +144,7 @@ class Event extends MyBaseModel
      */
     public function account()
     {
-        return $this->belongsTo('\App\Models\Account');
+        return $this->belongsTo(\App\Models\Account::class);
     }
 
     /**
@@ -148,7 +154,7 @@ class Event extends MyBaseModel
      */
     public function currency()
     {
-        return $this->belongsTo('\App\Models\Currency');
+        return $this->belongsTo(\App\Models\Currency::class);
     }
 
     /**
@@ -158,7 +164,7 @@ class Event extends MyBaseModel
      */
     public function organiser()
     {
-        return $this->belongsTo('\App\Models\Organiser');
+        return $this->belongsTo(\App\Models\Organiser::class);
     }
 
     /**
@@ -189,6 +195,46 @@ class Event extends MyBaseModel
     public function getPercentageFeeAttribute()
     {
         return config('attendize.ticket_booking_fee_percentage') + $this->organiser_fee_percentage;
+    }
+
+    /**
+     * Parse start_date to a Carbon instance
+     *
+     * @param string $date DateTime
+     */
+    public function setStartDateAttribute($date)
+    {
+        $format = config('attendize.default_datetime_format');
+        $this->attributes['start_date'] = Carbon::createFromFormat($format, $date);
+    }
+
+    /**
+     * Format start date from user preferences
+     * @return String Formatted date
+     */
+    public function startDateFormatted()
+    {
+        return $this->start_date->format(config('attendize.default_datetime_format'));
+    }
+
+    /**
+     * Parse end_date to a Carbon instance
+     *
+     * @param string $date DateTime
+     */
+    public function setEndDateAttribute($date)
+    {
+        $format = config('attendize.default_datetime_format');
+        $this->attributes['end_date'] = Carbon::createFromFormat($format, $date);
+    }
+
+    /**
+     * Format end date from user preferences
+     * @return String Formatted date
+     */
+    public function endDateFormatted()
+    {
+        return $this->end_date->format(config('attendize.default_datetime_format'));
     }
 
     /**
@@ -233,22 +279,19 @@ class Event extends MyBaseModel
             'Attendee Name',
             'Attendee Email',
             'Attendee Ticket'
-        ], $this->questions->lists('title')->toArray());
+        ], $this->questions->pluck('title')->toArray());
 
         $attendees = $this->attendees()->has('answers')->get();
 
         foreach ($attendees as $attendee) {
-
             $answers = [];
 
             foreach ($this->questions as $question) {
-
-                if (in_array($question->id, $attendee->answers->lists('question_id')->toArray())) {
+                if (in_array($question->id, $attendee->answers->pluck('question_id')->toArray())) {
                     $answers[] = $attendee->answers->where('question_id', $question->id)->first()->answer_text;
                 } else {
                     $answers[] = null;
                 }
-
             }
 
             $rows[] = array_merge([
@@ -257,7 +300,6 @@ class Event extends MyBaseModel
                 $attendee->email,
                 $attendee->ticket->title
             ], $answers);
-
         }
 
         return $rows;
@@ -309,7 +351,8 @@ class Event extends MyBaseModel
      */
     public function getEventUrlAttribute()
     {
-        return URL::to('/') . '/e/' . $this->id . '/' . Str::slug($this->title);
+        return route("showEventPage", ["event_id"=>$this->id, "event_slug"=>Str::slug($this->title)]);
+        //return URL::to('/') . '/e/' . $this->id . '/' . Str::slug($this->title);
     }
 
     /**
@@ -337,8 +380,8 @@ class Event extends MyBaseModel
         $siteUrl = URL::to('/');
         $eventUrl = $this->getEventUrlAttribute();
 
-        $start_date = new Carbon($this->start_date);
-        $end_date = new Carbon($this->end_date);
+        $start_date = $this->start_date;
+        $end_date = $this->end_date;
         $timestamp = new Carbon();
 
         $icsTemplate = <<<ICSTemplate

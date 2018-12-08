@@ -2,26 +2,33 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Ticket extends MyBaseModel
 {
     use SoftDeletes;
 
-    protected $perPage = 10;
+    protected $dates = ['start_sale_date', 'end_sale_date'];
 
     /**
      * The rules to validate the model.
      *
-     * @var array $rules
+     * @return array $rules
      */
-    public $rules = [
-        'title'              => ['required'],
-        'price'              => ['required', 'numeric', 'min:0'],
-        'start_sale_date'    => ['date'],
-        'end_sale_date'      => ['date', 'after:start_sale_date'],
-        'quantity_available' => ['integer', 'min:0'],
-    ];
+    public function rules()
+    {
+        $format = config('attendize.default_datetime_format');
+        return [
+            'title'              => 'required',
+            'price'              => 'required|numeric|min:0',
+            'description'        => '',
+            'start_sale_date'    => 'date_format:"'.$format.'"',
+            'end_sale_date'      => 'date_format:"'.$format.'"|after:start_sale_date',
+            'quantity_available' => 'integer|min:'.($this->quantity_sold + $this->quantity_reserved)
+        ];
+    }
 
     /**
      * The validation error messages.
@@ -33,6 +40,7 @@ class Ticket extends MyBaseModel
         'title.required'             => 'You must at least give a title for your ticket. (e.g Early Bird)',
         'quantity_available.integer' => 'Please ensure the quantity available is a number.',
     ];
+    protected $perPage = 10;
 
     /**
      * The event associated with the ticket.
@@ -41,7 +49,7 @@ class Ticket extends MyBaseModel
      */
     public function event()
     {
-        return $this->belongsTo('\App\Models\Event');
+        return $this->belongsTo(\App\Models\Event::class);
     }
 
     /**
@@ -51,7 +59,7 @@ class Ticket extends MyBaseModel
      */
     public function order()
     {
-        return $this->belongsToMany('\App\Models\Order');
+        return $this->belongsToMany(\App\Models\Order::class);
     }
 
     /**
@@ -61,7 +69,7 @@ class Ticket extends MyBaseModel
      */
     public function questions()
     {
-        return $this->belongsToMany('\App\Models\Question');
+        return $this->belongsToMany(\App\Models\Question::class);
     }
 
     /**
@@ -72,6 +80,40 @@ class Ticket extends MyBaseModel
     }
 
     /**
+     * Parse start_sale_date to a Carbon instance
+     *
+     * @param string $date DateTime
+     */
+    public function setStartSaleDateAttribute($date)
+    {
+        if (!$date) {
+            $this->attributes['start_sale_date'] = Carbon::now();
+        } else {
+            $this->attributes['start_sale_date'] = Carbon::createFromFormat(
+                config('attendize.default_datetime_format'),
+                $date
+            );
+        }
+    }
+
+    /**
+     * Parse end_sale_date to a Carbon instance
+     *
+     * @param string|null $date DateTime
+     */
+    public function setEndSaleDateAttribute($date)
+    {
+        if (!$date) {
+            $this->attributes['end_sale_date'] = null;
+        } else {
+            $this->attributes['end_sale_date'] = Carbon::createFromFormat(
+                config('attendize.default_datetime_format'),
+                $date
+            );
+        }
+    }
+
+    /**
      * Scope a query to only include tickets that are sold out.
      *
      * @param $query
@@ -79,16 +121,6 @@ class Ticket extends MyBaseModel
     public function scopeSoldOut($query)
     {
         $query->where('remaining_tickets', '=', 0);
-    }
-
-    /**
-     * The attributes that should be mutated to dates.
-     *
-     * @return array $dates
-     */
-    public function getDates()
-    {
-        return ['created_at', 'updated_at', 'start_sale_date', 'end_sale_date'];
     }
 
     /**
@@ -112,32 +144,22 @@ class Ticket extends MyBaseModel
      */
     public function getQuantityReservedAttribute()
     {
-        $reserved_total = \DB::table('reserved_tickets')
-                ->where('ticket_id', $this->id)
-                ->where('expires', '>', \Carbon::now())
-                ->sum('quantity_reserved');
+        $reserved_total = DB::table('reserved_tickets')
+            ->where('ticket_id', $this->id)
+            ->where('expires', '>', Carbon::now())
+            ->sum('quantity_reserved');
 
         return $reserved_total;
     }
 
     /**
-     * Get the booking fee of the ticket.
+     * Get the total price of the ticket.
      *
      * @return float|int
      */
-    public function getBookingFeeAttribute()
+    public function getTotalPriceAttribute()
     {
-        return (int) ceil($this->price) === 0 ? 0 : round(($this->price * (config('attendize.ticket_booking_fee_percentage') / 100)) + (config('attendize.ticket_booking_fee_fixed')), 2);
-    }
-
-    /**
-     * Get the organizer's booking fee.
-     *
-     * @return float|int
-     */
-    public function getOrganiserBookingFeeAttribute()
-    {
-        return (int) ceil($this->price) === 0 ? 0 : round(($this->price * ($this->event->organiser_fee_percentage / 100)) + ($this->event->organiser_fee_fixed), 2);
+        return $this->getTotalBookingFeeAttribute() + $this->price;
     }
 
     /**
@@ -151,13 +173,29 @@ class Ticket extends MyBaseModel
     }
 
     /**
-     * Get the total price of the ticket.
+     * Get the booking fee of the ticket.
      *
      * @return float|int
      */
-    public function getTotalPriceAttribute()
+    public function getBookingFeeAttribute()
     {
-        return $this->getTotalBookingFeeAttribute() + $this->price;
+        return (int)ceil($this->price) === 0 ? 0 : round(
+            ($this->price * (config('attendize.ticket_booking_fee_percentage') / 100)) + (config('attendize.ticket_booking_fee_fixed')),
+            2
+        );
+    }
+
+    /**
+     * Get the organizer's booking fee.
+     *
+     * @return float|int
+     */
+    public function getOrganiserBookingFeeAttribute()
+    {
+        return (int)ceil($this->price) === 0 ? 0 : round(
+            ($this->price * ($this->event->organiser_fee_percentage / 100)) + ($this->event->organiser_fee_fixed),
+            2
+        );
     }
 
     /**
@@ -193,17 +231,21 @@ class Ticket extends MyBaseModel
      */
     public function getSaleStatusAttribute()
     {
-        if ($this->start_sale_date !== null && $this->start_sale_date->isFuture())
+        if ($this->start_sale_date !== null && $this->start_sale_date->isFuture()) {
             return config('attendize.ticket_status_before_sale_date');
+        }
 
-        if ($this->end_sale_date !== null && $this->end_sale_date->isPast())
+        if ($this->end_sale_date !== null && $this->end_sale_date->isPast()) {
             return config('attendize.ticket_status_after_sale_date');
+        }
 
-        if ((int) $this->quantity_available > 0 && (int) $this->quantity_remaining <= 0)
+        if ((int)$this->quantity_available > 0 && (int)$this->quantity_remaining <= 0) {
             return config('attendize.ticket_status_sold_out');
+        }
 
-        if ($this->event->start_date->lte(\Carbon::now()))
+        if ($this->event->start_date->lte(Carbon::now())) {
             return config('attendize.ticket_status_off_sale');
+        }
 
         return config('attendize.ticket_status_on_sale');
     }

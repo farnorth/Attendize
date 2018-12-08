@@ -102,6 +102,7 @@ section.attendeeList {
     width: 40px;
     height: 40px;
     line-height: 20px;
+    background-color: #ebebeb;
 }
 
 .at.arrived {
@@ -215,6 +216,9 @@ footer {
     text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.63);
 }
 
+.uppercase {
+    text-transform: uppercase;
+}
 
 
 
@@ -261,20 +265,6 @@ footer {
     }
 }
 
-
-#ScanVideoOutter {
-    min-width: 100%;
-    min-height: 300px;
-    position: relative;
-    background: #999;
-    background: url(http://dev.attendize.com/assets/images/background.png) repeat;
-    background-color: #2E3254;
-}
-
-#qr-file {
-
-}
-
 #QrCanvas{
     display:none;
 }
@@ -313,10 +303,6 @@ video#scannerVideo {
     padding-bottom:15px;
     border-radius:20px;
 }
-
-
-
-
 
 @-webkit-keyframes opacity {
     0% {

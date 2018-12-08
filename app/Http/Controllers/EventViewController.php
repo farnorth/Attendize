@@ -33,7 +33,7 @@ class EventViewController extends Controller
 
         $data = [
             'event'       => $event,
-            'tickets'     => $event->tickets()->orderBy('created_at', 'desc')->get(),
+            'tickets'     => $event->tickets()->where('is_hidden', 0)->orderBy('sort_order', 'asc')->get(),
             'is_embedded' => 0,
         ];
         /*
@@ -61,7 +61,7 @@ class EventViewController extends Controller
 
                 $affiliate->save();
 
-                Cookie::queue('affiliate_'.$event_id, $affiliate_ref, 60 * 24 * 60);
+                Cookie::queue('affiliate_' . $event_id, $affiliate_ref, 60 * 24 * 60);
             }
         }
 
@@ -112,16 +112,16 @@ class EventViewController extends Controller
             'event'           => $event,
         ];
 
-        Mail::send('Emails.messageOrganiser', $data, function ($message) use ($event, $data) {
+        Mail::send('Emails.messageReceived', $data, function ($message) use ($event, $data) {
             $message->to($event->organiser->email, $event->organiser->name)
                 ->from(config('attendize.outgoing_email_noreply'), $data['sender_name'])
                 ->replyTo($data['sender_email'], $data['sender_name'])
-                ->subject('Message Regarding: '.$event->title);
+                ->subject(trans("Email.message_regarding_event", ["event"=>$event->title]));
         });
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Message Successfully Sent',
+            'message' => trans("Controllers.message_successfully_sent"),
         ]);
     }
 

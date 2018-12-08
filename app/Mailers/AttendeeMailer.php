@@ -5,8 +5,8 @@ namespace App\Mailers;
 use App\Models\Attendee;
 use App\Models\Message;
 use Carbon\Carbon;
-use Mail;
 use Log;
+use Mail;
 
 
 class AttendeeMailer extends Mailer
@@ -23,7 +23,7 @@ class AttendeeMailer extends Mailer
 
         Mail::send('Mailers.TicketMailer.SendAttendeeTicket', $data, function ($message) use ($attendee) {
             $message->to($attendee->email);
-            $message->subject('Your ticket for the event ' . $attendee->order->event->title);
+            $message->subject(trans("Email.your_ticket_for_event", ["event" => $attendee->order->event->title]));
 
             $file_name = $attendee->reference;
             $file_path = public_path(config('attendize.event_pdf_tickets_path')) . '/' . $file_name . '.pdf';
@@ -48,7 +48,11 @@ class AttendeeMailer extends Mailer
                 $message_object->account_id)->get();
 
         foreach ($attendees as $attendee) {
-
+            
+            if ($attendee->is_cancelled) {
+               continue;
+            }
+            
             $data = [
                 'attendee'        => $attendee,
                 'event'           => $event,
@@ -57,7 +61,7 @@ class AttendeeMailer extends Mailer
                 'email_logo'      => $attendee->event->organiser->full_logo_path,
             ];
 
-            Mail::send('Emails.messageAttendees', $data, function ($message) use ($attendee, $data) {
+            Mail::send('Emails.messageReceived', $data, function ($message) use ($attendee, $data) {
                 $message->to($attendee->email, $attendee->full_name)
                     ->from(config('attendize.outgoing_email_noreply'), $attendee->event->organiser->name)
                     ->replyTo($attendee->event->organiser->email, $attendee->event->organiser->name)
@@ -79,9 +83,9 @@ class AttendeeMailer extends Mailer
             'attendee' => $attendee,
         ];
 
-        Mail::queue('Mailers.TicketMailer.SendAttendeeInvite', $data, function ($message) use ($attendee) {
+        Mail::send('Mailers.TicketMailer.SendAttendeeInvite', $data, function ($message) use ($attendee) {
             $message->to($attendee->email);
-            $message->subject('Your ticket for the event ' . $attendee->order->event->title);
+            $message->subject(trans("Email.your_ticket_for_event", ["event" => $attendee->order->event->title]));
 
             $file_name = $attendee->getReferenceAttribute();
             $file_path = public_path(config('attendize.event_pdf_tickets_path')) . '/' . $file_name . '.pdf';

@@ -35,18 +35,18 @@ class Attendee extends MyBaseModel
         'arrival_time'
     ];
 
-     /**
-      * Generate a private reference number for the attendee. Use for checking in the attendee.
-      *
-      */
-     public static function boot()
-     {
-         parent::boot();
+    /**
+     * Generate a private reference number for the attendee. Use for checking in the attendee.
+     *
+     */
+    public static function boot()
+    {
+        parent::boot();
 
-         static::creating(function ($order) {
-            $order->private_reference_number = str_pad(rand(0, pow(10, 9) - 1), 9, '0', STR_PAD_LEFT);
+        static::creating(function ($order) {
+            $order->private_reference_number = str_pad(random_int(0, pow(10, 9) - 1), 9, '0', STR_PAD_LEFT);
         });
-     }
+    }
 
     /**
      * The order associated with the attendee.
@@ -55,7 +55,7 @@ class Attendee extends MyBaseModel
      */
     public function order()
     {
-        return $this->belongsTo('\App\Models\Order');
+        return $this->belongsTo(\App\Models\Order::class);
     }
 
     /**
@@ -65,7 +65,7 @@ class Attendee extends MyBaseModel
      */
     public function ticket()
     {
-        return $this->belongsTo('\App\Models\Ticket');
+        return $this->belongsTo(\App\Models\Ticket::class);
     }
 
     /**
@@ -75,9 +75,9 @@ class Attendee extends MyBaseModel
      */
     public function event()
     {
-        return $this->belongsTo('\App\Models\Event');
+        return $this->belongsTo(\App\Models\Event::class);
     }
-    
+
     /**
      * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
@@ -103,7 +103,8 @@ class Attendee extends MyBaseModel
      *
      * @return string
      */
-    public function getReferenceAttribute() {
+    public function getReferenceAttribute()
+    {
         return $this->order->order_reference . '-' . $this->reference_index;
     }
 
@@ -114,7 +115,7 @@ class Attendee extends MyBaseModel
      */
     public function getFullNameAttribute()
     {
-        return $this->first_name.' '.$this->last_name;
+        return $this->first_name . ' ' . $this->last_name;
     }
 
 

@@ -12,19 +12,17 @@ use Validator;
 class MyBaseModel extends \Illuminate\Database\Eloquent\Model
 {
     /**
-     * Indicates whether the model uses soft deletes.
-     *
-     * @var bool $softDelete
-     */
-    protected $softDelete = true;
-
-    /**
      * Indicates if the model should be timestamped.
      *
      * @var bool $timestamps
      */
     public $timestamps = true;
-
+    /**
+     * Indicates whether the model uses soft deletes.
+     *
+     * @var bool $softDelete
+     */
+    protected $softDelete = true;
     /**
      * The validation rules of the model.
      *
@@ -47,43 +45,10 @@ class MyBaseModel extends \Illuminate\Database\Eloquent\Model
     protected $errors;
 
     /**
-     * Validate the model instance.
-     *
-     * @param $data
-     *
-     * @return bool
-     */
-    public function validate($data)
-    {
-        $v = Validator::make($data, $this->rules, $this->messages);
-
-        if ($v->fails()) {
-            $this->errors = $v->messages();
-
-            return false;
-        }
-
-        // validation pass
-        return true;
-    }
-
-    /**
-     * Gets the validation error messages.
-     *
-     * @param bool $returnArray
-     *
-     * @return mixed
-     */
-    public function errors($returnArray = true)
-    {
-        return $returnArray ? $this->errors->toArray() : $this->errors;
-    }
-
-    /**
      * Create a new model.
      *
-     * @param int  $account_id
-     * @param int  $user_id
+     * @param int $account_id
+     * @param int $user_id
      * @param bool $ignore_user_id
      *
      * @return \className
@@ -113,6 +78,40 @@ class MyBaseModel extends \Illuminate\Database\Eloquent\Model
     }
 
     /**
+     * Validate the model instance.
+     *
+     * @param $data
+     *
+     * @return bool
+     */
+    public function validate($data)
+    {
+        $rules = (method_exists($this, 'rules') ? $this->rules() : $this->rules);
+        $v = Validator::make($data, $rules, $this->messages, $this->attributes);
+
+        if ($v->fails()) {
+            $this->errors = $v->messages();
+
+            return false;
+        }
+
+        // validation pass
+        return true;
+    }
+
+    /**
+     * Gets the validation error messages.
+     *
+     * @param bool $returnArray
+     *
+     * @return mixed
+     */
+    public function errors($returnArray = true)
+    {
+        return $returnArray ? $this->errors->toArray() : $this->errors;
+    }
+
+    /**
      * Get a formatted date.
      *
      * @param        $field
@@ -120,9 +119,13 @@ class MyBaseModel extends \Illuminate\Database\Eloquent\Model
      *
      * @return bool|null|string
      */
-    public function getFormattedDate($field, $format = 'd-m-Y H:i')
+    public function getFormattedDate($field, $format = false)
     {
-        return $this->$field === null ? null : date($format, strtotime($this->$field));
+        if (!$format) {
+            $format = config('attendize.default_datetime_format');
+        }
+
+        return $this->$field === null ? null : $this->$field->format($format);
     }
 
     /**
@@ -149,7 +152,7 @@ class MyBaseModel extends \Illuminate\Database\Eloquent\Model
         $table = $this->getTable();
 
         $query->where(function ($query) use ($accountId, $table) {
-            $query->whereRaw(\DB::raw('('.$table.'.account_id = '.$accountId.')'));
+            $query->whereRaw(\DB::raw('(' . $table . '.account_id = ' . $accountId . ')'));
         });
 
         return $query;

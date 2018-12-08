@@ -2,10 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Auth\Authenticatable;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Str;
+use Image;
 
-class Organiser extends MyBaseModel
+class Organiser extends MyBaseModel implements AuthenticatableContract
 {
+    use Authenticatable;
     /**
      * The validation rules for the model.
      *
@@ -15,6 +20,23 @@ class Organiser extends MyBaseModel
         'name'           => ['required'],
         'email'          => ['required', 'email'],
         'organiser_logo' => ['mimes:jpeg,jpg,png', 'max:10000'],
+    ];
+
+    protected $extra_rules = [
+        'tax_name'        => ['required','max:15'],
+        'tax_value'       => ['required','numeric'],
+        'tax_id'          => ['required','max:100'],
+    ];
+
+    /**
+     * The validation rules for the model.
+     *
+     * @var array $attributes
+     */
+    protected $attributes = [
+        'tax_name'        => 'Tax Name',
+        'tax_value'       => 'Tax Rate',
+        'tax_id'          => 'Tax ID',
     ];
 
     /**
@@ -36,7 +58,7 @@ class Organiser extends MyBaseModel
      */
     public function account()
     {
-        return $this->belongsTo('\App\Models\Account');
+        return $this->belongsTo(\App\Models\Account::class);
     }
 
     /**
@@ -46,7 +68,7 @@ class Organiser extends MyBaseModel
      */
     public function events()
     {
-        return $this->hasMany('\App\Models\Event');
+        return $this->hasMany(\App\Models\Event::class);
     }
 
     /**
@@ -56,7 +78,7 @@ class Organiser extends MyBaseModel
      */
     public function attendees()
     {
-        return $this->hasManyThrough('\App\Models\Attendee', '\App\Models\Event');
+        return $this->hasManyThrough(\App\Models\Attendee::class, \App\Models\Event::class);
     }
 
     /**
@@ -66,7 +88,7 @@ class Organiser extends MyBaseModel
      */
     public function orders()
     {
-        return $this->hasManyThrough('\App\Models\Order', '\App\Models\Event');
+        return $this->hasManyThrough(\App\Models\Order::class, \App\Models\Event::class);
     }
 
     /**
@@ -76,8 +98,8 @@ class Organiser extends MyBaseModel
      */
     public function getFullLogoPathAttribute()
     {
-        if ($this->logo_path && (file_exists(config('attendize.cdn_url_user_assets').'/'.$this->logo_path) || file_exists(public_path($this->logo_path)))) {
-            return config('attendize.cdn_url_user_assets').'/'.$this->logo_path;
+        if ($this->logo_path && (file_exists(config('attendize.cdn_url_user_assets') . '/' . $this->logo_path) || file_exists(public_path($this->logo_path)))) {
+            return config('attendize.cdn_url_user_assets') . '/' . $this->logo_path;
         }
 
         return config('attendize.fallback_organiser_logo_url');
@@ -112,4 +134,45 @@ class Organiser extends MyBaseModel
     public function getDailyStats()
     {
     }
+
+
+    /**
+     * Set a new Logo for the Organiser
+     *
+     * @param \Illuminate\Http\UploadedFile $file
+     */
+    public function setLogo(UploadedFile $file)
+    {
+        $filename = str_slug($this->name).'-logo-'.$this->id.'.'.strtolower($file->getClientOriginalExtension());
+
+        // Image Directory
+        $imageDirectory = public_path() . '/' . config('attendize.organiser_images_path');
+
+        // Paths
+        $relativePath = config('attendize.organiser_images_path').'/'.$filename;
+        $absolutePath = public_path($relativePath);
+
+        $file->move($imageDirectory, $filename);
+
+        $img = Image::make($absolutePath);
+
+        $img->resize(250, 250, function ($constraint) {
+            $constraint->aspectRatio();
+            $constraint->upsize();
+        });
+
+        $img->save($absolutePath);
+
+        if (file_exists($absolutePath)) {
+            $this->logo_path = $relativePath;
+        }
+    }
+
+    /**
+     * Adds extra validator rules to the organiser object depending on whether tax is required or not
+     */
+    public function addExtraValidationRules() {
+        $this->rules = $this->rules + $this->extra_rules;
+    }
 }
+

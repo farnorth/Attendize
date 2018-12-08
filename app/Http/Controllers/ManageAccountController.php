@@ -9,12 +9,13 @@ use App\Models\PaymentGateway;
 use App\Models\Timezone;
 use App\Models\User;
 use Auth;
+use Hash;
 use HttpClient;
 use Illuminate\Http\Request;
 use Input;
-use Validator;
-use Hash;
 use Mail;
+use Validator;
+use GuzzleHttp\Client;
 
 class ManageAccountController extends MyBaseController
 {
@@ -27,11 +28,12 @@ class ManageAccountController extends MyBaseController
     public function showEditAccount(Request $request)
     {
         $data = [
-            'account' => Account::find(Auth::user()->account_id),
-            'timezones' => Timezone::lists('location', 'id'),
-            'currencies' => Currency::lists('title', 'id'),
-            'payment_gateways' => PaymentGateway::lists('provider_name', 'id'),
-            'account_payment_gateways' => AccountPaymentGateway::scope()->get()
+            'account'                  => Account::find(Auth::user()->account_id),
+            'timezones'                => Timezone::pluck('location', 'id'),
+            'currencies'               => Currency::pluck('title', 'id'),
+            'payment_gateways'         => PaymentGateway::pluck('provider_name', 'id'),
+            'account_payment_gateways' => AccountPaymentGateway::scope()->get(),
+            'version_info'             => $this->getVersionInfo(),
         ];
 
         return view('ManageAccount.Modals.EditAccount', $data);
@@ -40,7 +42,7 @@ class ManageAccountController extends MyBaseController
 
     public function showStripeReturn()
     {
-        $error_message = 'There was an error connecting your Stripe account. Please try again.';
+        $error_message = trans("Controllers.stripe_error");
 
         if (Input::get('error') || !Input::get('code')) {
             \Session::flash('message', $error_message);
@@ -49,12 +51,12 @@ class ManageAccountController extends MyBaseController
         }
 
         $request = [
-            'url' => 'https://connect.stripe.com/oauth/token',
+            'url'    => 'https://connect.stripe.com/oauth/token',
             'params' => [
 
                 'client_secret' => STRIPE_SECRET_KEY,
-                'code' => Input::get('code'),
-                'grant_type' => 'authorization_code',
+                'code'          => Input::get('code'),
+                'grant_type'    => 'authorization_code',
             ],
         ];
 
@@ -70,14 +72,14 @@ class ManageAccountController extends MyBaseController
 
         $account = Account::find(\Auth::user()->account_id);
 
-        $account->stripe_access_token    = $content->access_token;
-        $account->stripe_refresh_token   = $content->refresh_token;
+        $account->stripe_access_token = $content->access_token;
+        $account->stripe_refresh_token = $content->refresh_token;
         $account->stripe_publishable_key = $content->stripe_publishable_key;
-        $account->stripe_data_raw        = json_encode($content);
+        $account->stripe_data_raw = json_encode($content);
 
         $account->save();
 
-        \Session::flash('message', 'You have successfully connected your Stripe account.');
+        \Session::flash('message', trans("Controllers.stripe_success"));
 
         return redirect()->route('showEventsDashboard');
     }
@@ -94,22 +96,22 @@ class ManageAccountController extends MyBaseController
 
         if (!$account->validate(Input::all())) {
             return response()->json([
-                'status' => 'error',
+                'status'   => 'error',
                 'messages' => $account->errors(),
             ]);
         }
 
-        $account->first_name  = Input::get('first_name');
-        $account->last_name   = Input::get('last_name');
-        $account->email       = Input::get('email');
+        $account->first_name = Input::get('first_name');
+        $account->last_name = Input::get('last_name');
+        $account->email = Input::get('email');
         $account->timezone_id = Input::get('timezone_id');
         $account->currency_id = Input::get('currency_id');
         $account->save();
 
         return response()->json([
-            'status' => 'success',
-            'id' => $account->id,
-            'message' => 'Account Successfully Updated',
+            'status'  => 'success',
+            'id'      => $account->id,
+            'message' => trans("Controllers.account_successfully_updated"),
         ]);
     }
 
@@ -134,12 +136,15 @@ class ManageAccountController extends MyBaseController
             case config('attendize.payment_gateway_coinbase') : //BitPay
                 $config = $request->get('coinbase');
                 break;
+			case config('attendize.payment_gateway_migs') : //MIGS
+				$config = $request->get('migs');
+				break;
         }
 
         $account_payment_gateway = AccountPaymentGateway::firstOrNew(
             [
                 'payment_gateway_id' => $gateway_id,
-                'account_id' => $account->id,
+                'account_id'         => $account->id,
             ]);
         $account_payment_gateway->config = $config;
         $account_payment_gateway->account_id = $account->id;
@@ -150,9 +155,9 @@ class ManageAccountController extends MyBaseController
         $account->save();
 
         return response()->json([
-            'status' => 'success',
-            'id' => $account_payment_gateway->id,
-            'message' => 'Payment Information Successfully Updated',
+            'status'  => 'success',
+            'id'      => $account_payment_gateway->id,
+            'message' => trans("Controllers.payment_information_successfully_updated"),
         ]);
     }
 
@@ -168,16 +173,16 @@ class ManageAccountController extends MyBaseController
         ];
 
         $messages = [
-            'email.email'    => 'Please enter a valid E-mail address.',
-            'email.required' => 'E-mail address is required.',
-            'email.unique'   => 'E-mail already in use for this account.',
+            'email.email'    => trans("Controllers.error.email.email"),
+            'email.required' => trans("Controllers.error.email.required"),
+            'email.unique'   => trans("Controllers.error.email.unique"),
         ];
 
         $validation = Validator::make(Input::all(), $rules, $messages);
 
         if ($validation->fails()) {
             return response()->json([
-                'status' => 'error',
+                'status'   => 'error',
                 'messages' => $validation->messages()->toArray(),
             ]);
         }
@@ -186,26 +191,52 @@ class ManageAccountController extends MyBaseController
 
         $user = new User();
 
-        $user->email      = Input::get('email');
-        $user->password   = Hash::make($temp_password);
+        $user->email = Input::get('email');
+        $user->password = Hash::make($temp_password);
         $user->account_id = Auth::user()->account_id;
 
         $user->save();
 
         $data = [
-            'user' => $user,
+            'user'          => $user,
             'temp_password' => $temp_password,
-            'inviter' => Auth::user(),
+            'inviter'       => Auth::user(),
         ];
 
         Mail::send('Emails.inviteUser', $data, function ($message) use ($data) {
             $message->to($data['user']->email)
-                ->subject($data['inviter']->first_name . ' ' . $data['inviter']->last_name . ' added you to an '. config('attendize.app_name') .' account.');
+                ->subject(trans("Email.invite_user", ["name"=>$data['inviter']->first_name . ' ' . $data['inviter']->last_name, "app"=>config('attendize.app_name')]));
         });
 
         return response()->json([
-            'status' => 'success',
-            'message' => 'Success! <b>' . $user->email . '</b> has been sent further instructions.',
+            'status'  => 'success',
+            'message' => trans("Controllers.success_name_has_received_instruction", ["name"=>$user->email]),
         ]);
+    }
+
+    public function getVersionInfo()
+    {
+        $installedVersion = null;
+        $latestVersion = null;
+
+        try {
+            $http_client = new Client();
+
+            $response = $http_client->get('https://attendize.com/version.php');
+            $latestVersion = (string)$response->getBody();
+            $installedVersion = file_get_contents(base_path('VERSION'));
+        } catch (\Exception $exception) {
+            return false;
+        }
+
+        if ($installedVersion && $latestVersion) {
+            return [
+                'latest'      => $latestVersion,
+                'installed'   => $installedVersion,
+                'is_outdated' => (version_compare($installedVersion, $latestVersion) === -1) ? true : false,
+            ];
+        }
+
+        return false;
     }
 }

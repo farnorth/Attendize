@@ -3923,7 +3923,7 @@ function log() {
   $.payment.cards = cards = [
     {
       type: 'elo',
-      patterns: [4011, 4312, 4389, 4514, 4573, 4576, 5041, 5066, 5067, 509, 6277, 6362, 6363, 650, 6516, 6550],
+      patterns: [401178, 401179, 431274, 438935, 451416, 457393, 457631, 457632, 504175, 506699, 5067, 509, 627780, 636297, 636368, 650, 6516, 6550],
       format: defaultFormat,
       length: [16],
       cvcLength: [3],
@@ -4596,12 +4596,11 @@ function log() {
                         }
 
                         toggleSubmitDisabled($submitButton);
-                        showMessage('Whoops!, it looks like the server returned an error.\n\
-                   Please try again, or contact the webmaster if the problem persists.');
+                        showMessage(lang("whoops"));
                     },
                     success: function(data, statusText, xhr, $form) {
                         var $submitButton = $form.find('input[type=submit]');
-                        
+
                         if (data.message) {
                             showMessage(data.message);
                         }
@@ -4654,17 +4653,17 @@ function log() {
 
 
             if (!Stripe.validateCardNumber($cardNumber.val())) {
-                showFormError($cardNumber, 'The credit card number appears to be invalid.');
+                showFormError($cardNumber, lang("credit_card_error"));
                 noErrors = false;
             }
 
             if (!Stripe.validateCVC($cvcNumber.val())) {
-                showFormError($cvcNumber, 'The CVC number appears to be invalid.');
+                showFormError($cardNumber, lang("cvc_error"));
                 noErrors = false;
             }
 
             if (!Stripe.validateExpiry($expiryMonth.val(), $expiryYear.val())) {
-                showFormError($expiryMonth, 'The expiration date appears to be invalid.');
+                showFormError($cardNumber, lang("expiry_error"));
                 showFormError($expiryYear, '');
                 noErrors = false;
             }
@@ -4681,7 +4680,10 @@ function log() {
 
                     if (response.error) {
                         clearFormErrors($('.payment-form'));
-                        showFormError($('*[data-stripe=' + response.error.param + ']', $('.payment-form')), response.error.message);
+                        if(response.error.param.length>0)
+                            showFormError($('*[data-stripe=' + response.error.param + ']', $('.payment-form')), response.error.message);
+                        else
+                            showMessage(response.error.message);
                         toggleSubmitDisabled($submitButton);
                     } else {
                         var token = response.id;
@@ -4691,7 +4693,7 @@ function log() {
 
                 });
             } else {
-                showMessage('Please check your card details and try again.');
+                showMessage(lang("card_validation_error"));
                 toggleSubmitDisabled($submitButton);
             }
 
@@ -4738,7 +4740,7 @@ function log() {
         $('.offline_payment').toggle(this.checked);
 
         // Disable CC form inputs to prevent Chrome trying to validate hidden fields
-        $('.online_payment input:hidden,  .online_payment input select:hidden').attr('disabled', this.checked);
+        $('.online_payment input,  .online_payment select').attr('disabled', this.checked);
 
     }).change();
 
@@ -4772,7 +4774,7 @@ function processFormErrors($form, errors)
 }
 
 /**
- * Toggle a submit button disabled/enabled - duh!
+ * Toggle a submit button disabled/enabled
  *
  * @param element $submitButton
  * @returns void
@@ -4789,7 +4791,7 @@ function toggleSubmitDisabled($submitButton) {
     $submitButton.data('original-text', $submitButton.val())
             .attr('disabled', true)
             .addClass('disabled')
-            .val('Just a second...');
+            .val(lang("processing"));
 }
 
 /**
@@ -4852,18 +4854,18 @@ function setCountdown($element, seconds) {
     function updateTimer() {
         msLeft = endTime - (+new Date);
         if (msLeft < 1000) {
-            alert("You have run out of time! You will have to restart the order process.");
+            alert(lang("time_run_out"));
             location.reload();
         } else {
 
             if (msLeft < 120000 && !twoMinWarningShown) {
-                showMessage("You only have 2 minutes left to complete this order!");
+                showMessage(lang("just_2_minutes"));
                 twoMinWarningShown = true;
             }
 
             time = new Date(msLeft);
             mins = time.getUTCMinutes();
-            $element.html('<b>' + mins + '</b> minutes and <b>' + twoDigits(time.getUTCSeconds()) + '</b> seconds');
+            $element.html('<b>' + mins + ':' + twoDigits(time.getUTCSeconds()) + '</b>');
             setTimeout(updateTimer, time.getUTCMilliseconds() + 500);
         }
     }

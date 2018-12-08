@@ -2,7 +2,6 @@
 
 namespace App\Events;
 
-use App\Events\Event;
 use App\Models\Order;
 use Illuminate\Queue\SerializesModels;
 

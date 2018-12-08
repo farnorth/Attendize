@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use File;
+use Illuminate\Http\Request;
 use Image;
 use Validator;
-use Illuminate\Http\Request;
 
 class EventCustomizeController extends MyBaseController
 {
@@ -108,7 +108,7 @@ class EventCustomizeController extends MyBaseController
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Social Settings Successfully Updated',
+            'message' => trans("Controllers.social_settings_successfully_updated"),
         ]);
 
     }
@@ -132,7 +132,7 @@ class EventCustomizeController extends MyBaseController
             'is_1d_barcode_enabled' => ['required'],
         ];
         $messages = [
-            'ticket_bg_color.required' => 'Please enter a background color.',
+            'ticket_bg_color.required' => trans("Controllers.please_enter_a_background_color"),
         ];
 
         $validator = Validator::make($request->all(), $rules, $messages);
@@ -174,9 +174,9 @@ class EventCustomizeController extends MyBaseController
             'organiser_fee_fixed'      => ['numeric', 'between:0,100'],
         ];
         $messages = [
-            'organiser_fee_percentage.numeric' => 'Please enter a value between 0 and 100',
-            'organiser_fee_fixed.numeric'      => 'Please check the format. It should be in the format 0.00.',
-            'organiser_fee_fixed.between'      => 'Please enter a value between 0 and 100.',
+            'organiser_fee_percentage.numeric' => trans("validation.between.numeric", ["attribute"=>trans("Fees.service_fee_percentage"), "min"=>0, "max"=>100]),
+            'organiser_fee_fixed.numeric'      => trans("validation.date_format", ["attribute"=>trans("Fees.service_fee_fixed_price"), "format"=>"0.00"]),
+            'organiser_fee_fixed.between'      => trans("validation.between.numeric", ["attribute"=>trans("Fees.service_fee_fixed_price"), "min"=>0, "max"=>100]),
         ];
 
         $validator = Validator::make($request->all(), $rules, $messages);
@@ -194,7 +194,7 @@ class EventCustomizeController extends MyBaseController
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Order Page Successfully Updated',
+            'message' => trans("Controllers.order_page_successfully_updated"),
         ]);
     }
 
@@ -225,12 +225,12 @@ class EventCustomizeController extends MyBaseController
         $event->pre_order_display_message = trim($request->get('pre_order_display_message'));
         $event->post_order_display_message = trim($request->get('post_order_display_message'));
         $event->offline_payment_instructions = trim($request->get('offline_payment_instructions'));
-        $event->enable_offline_payments = (int) $request->get('enable_offline_payments');
+        $event->enable_offline_payments = (int)$request->get('enable_offline_payments');
         $event->save();
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Order Page Successfully Updated',
+            'message' => trans("Controllers.order_page_successfully_updated"),
         ]);
     }
 
@@ -249,8 +249,8 @@ class EventCustomizeController extends MyBaseController
             'bg_image_path' => ['mimes:jpeg,jpg,png', 'max:4000'],
         ];
         $messages = [
-            'bg_image_path.mimes' => 'Please ensure you are uploading an image (JPG, PNG, JPEG)',
-            'bg_image_path.max'   => 'Please ensure the image is not larger than 2.5MB',
+            'bg_image_path.mimes' => trans("validation.mimes", ["attribute"=>trans("Event.event_image"), "values"=>"JPEG, JPG, PNG"]),
+            'bg_image_path.max'   => trans("validation.max.file", ["attribute"=>trans("Event.event_image"), "max"=>2500]),
         ];
 
         $validator = Validator::make($request->all(), $rules, $messages);
@@ -302,7 +302,7 @@ class EventCustomizeController extends MyBaseController
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Event Page Successfully Updated',
+            'message' => trans("Controllers.event_page_successfully_updated"),
             'runThis' => 'document.getElementById(\'previewIframe\').contentWindow.location.reload(true);',
         ]);
     }

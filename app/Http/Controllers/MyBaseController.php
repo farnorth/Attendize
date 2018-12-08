@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-
 use App\Models\Organiser;
 use Auth;
 use JavaScript;
@@ -14,23 +13,24 @@ class MyBaseController extends Controller
 {
     public function __construct()
     {
+
+        if (empty(Auth::user())) {
+            return redirect()->to('/login');
+        }
+
         /*
          * Set up JS across all views
          */
         JavaScript::put([
-           'User'                => [
-               'full_name'    => Auth::user()->full_name,
-               'email'        => Auth::user()->email,
-               'is_confirmed' => Auth::user()->is_confirmed,
-           ],
-            /*
-             * @todo These should be user selectable
-             */
-           'DateFormat'          => 'dd-MM-yyyy',
-           'DateTimeFormat'      => 'dd-MM-yyyy hh:mm',
-           'GenericErrorMessage' => 'Whoops! An unknown error has occurred. Please try again or contact support if the problem persists.'
+            'User'                => [
+                'full_name'    => Auth::user()->full_name,
+                'email'        => Auth::user()->email,
+                'is_confirmed' => Auth::user()->is_confirmed,
+            ],
+            'DateTimeFormat'      => config('attendize.default_date_picker_format'),
+            'DateSeparator'       => config('attendize.default_date_picker_seperator'),
+            'GenericErrorMessage' => trans("Controllers.whoops"),
         ]);
-
         /*
          * Share the organizers across all views
          */
@@ -40,7 +40,7 @@ class MyBaseController extends Controller
     /**
      * Returns data which is required in each view, optionally combined with additional data.
      *
-     * @param int   $event_id
+     * @param int $event_id
      * @param array $additional_data
      *
      * @return arrau
@@ -51,12 +51,12 @@ class MyBaseController extends Controller
 
         $image_path = $event->organiser->full_logo_path;
         if ($event->images->first() != null) {
-          $image_path = $event->images()->first()->image_path;
+            $image_path = $event->images()->first()->image_path;
         }
 
         return array_merge([
-            'event' => $event,
-            'questions' => $event->questions()->get(),
+            'event'      => $event,
+            'questions'  => $event->questions()->get(),
             'image_path' => $image_path,
         ], $additional_data);
     }

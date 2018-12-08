@@ -2,16 +2,18 @@
 
 namespace App\Models;
 
+use App\Notifications\UserResetPassword;
 use Illuminate\Auth\Authenticatable;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notifiable;
 
 class User extends Model implements AuthenticatableContract, CanResetPasswordContract
 {
-    use Authenticatable, CanResetPassword, SoftDeletes;
+    use Authenticatable, CanResetPassword, SoftDeletes, Notifiable;
 
     /**
      * The database table used by the model.
@@ -60,7 +62,7 @@ class User extends Model implements AuthenticatableContract, CanResetPasswordCon
      */
     public function account()
     {
-        return $this->belongsTo('\App\Models\Account');
+        return $this->belongsTo(\App\Models\Account::class);
     }
 
     /**
@@ -70,7 +72,7 @@ class User extends Model implements AuthenticatableContract, CanResetPasswordCon
      */
     public function activity()
     {
-        return $this->hasMany('\App\Models\Activity');
+        return $this->hasMany(\App\Models\Activity::class);
     }
 
     /**
@@ -140,7 +142,7 @@ class User extends Model implements AuthenticatableContract, CanResetPasswordCon
      */
     public function getFullNameAttribute()
     {
-        return $this->first_name.' '.$this->last_name;
+        return $this->first_name . ' ' . $this->last_name;
     }
 
     /**
@@ -154,5 +156,16 @@ class User extends Model implements AuthenticatableContract, CanResetPasswordCon
             $user->confirmation_code = str_random();
             $user->api_token = str_random(60);
         });
+    }
+
+    /**
+     * Send the password reset notification.
+     *
+     * @param  string  $token
+     * @return void
+     */
+    public function sendPasswordResetNotification($token)
+    {
+        $this->notify(new UserResetPassword($token));
     }
 }

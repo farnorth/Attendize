@@ -5,10 +5,10 @@ namespace App\Http\Controllers;
 use App\Attendize\Utils;
 use App\Models\Account;
 use App\Models\User;
+use Hash;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Http\Request;
 use Mail;
-use Hash;
 
 class UserSignupController extends Controller
 {
@@ -42,7 +42,7 @@ class UserSignupController extends Controller
         $is_attendize = Utils::isAttendize();
         $this->validate($request, [
             'email'        => 'required|email|unique:users',
-            'password'     => 'required|min:5|confirmed',
+            'password'     => 'required|min:8|confirmed',
             'first_name'   => 'required',
             'terms_agreed' => $is_attendize ? 'required' : '',
         ]);
@@ -62,10 +62,12 @@ class UserSignupController extends Controller
 
         if ($is_attendize) {
             // TODO: Do this async?
-            Mail::send('Emails.ConfirmEmail', ['first_name' => $user->first_name, 'confirmation_code' => $user->confirmation_code], function ($message) use ($request) {
-                $message->to($request->get('email'), $request->get('first_name'))
-                    ->subject('Thank you for registering for Attendize');
-            });
+            Mail::send('Emails.ConfirmEmail',
+                ['first_name' => $user->first_name, 'confirmation_code' => $user->confirmation_code],
+                function ($message) use ($request) {
+                    $message->to($request->get('email'), $request->get('first_name'))
+                        ->subject(trans("Email.attendize_register"));
+                });
         }
 
         session()->flash('message', 'Success! You can now login.');
@@ -85,7 +87,7 @@ class UserSignupController extends Controller
 
         if (!$user) {
             return view('Public.Errors.Generic', [
-                'message' => 'The confirmation code is missing or malformed.',
+                'message' => trans("Controllers.confirmation_malformed"),
             ]);
         }
 
@@ -93,7 +95,7 @@ class UserSignupController extends Controller
         $user->confirmation_code = null;
         $user->save();
 
-        session()->flash('message', 'Success! Your email is now verified. You can now login.');
+        session()->flash('message', trans("Controllers.confirmation_successful"));
 
         return redirect()->route('login');
     }
